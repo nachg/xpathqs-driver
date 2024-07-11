@@ -12,6 +12,7 @@ import org.xpathqs.driver.extensions.isVisible
 import org.xpathqs.log.Log
 import org.xpathqs.driver.log.action
 import org.xpathqs.driver.log.xpath
+import org.xpathqs.driver.model.IBaseModel
 import org.xpathqs.driver.navigation.Navigator
 import org.xpathqs.driver.navigation.base.INavigator
 import java.time.Duration
@@ -36,6 +37,9 @@ open class CachedExecutor(
         }
         set(WaitForAllSelectorAction(listOf(Selector())).name) {
             executeAction(it as WaitForAllSelectorAction)
+        }
+        set(WaitForAllSelectorDisappearAction(listOf(Selector())).name) {
+            executeAction(it as WaitForAllSelectorDisappearAction)
         }
         set(WaitForSelectorDisappearAction(Selector()).name) {
             executeAction(it as WaitForSelectorDisappearAction)
@@ -92,6 +96,20 @@ open class CachedExecutor(
         }
     }
 
+    protected open fun executeAction(action: WaitForAllSelectorDisappearAction) {
+        Log.action("WaitForAllSelectorDisappearAction") {
+            waitHelper(
+                {
+                    action.selectors.firstOrNull {
+                        Log.info("${it.name} isHidden: ${it.isHidden}")
+                        it.isVisible
+                    } != null
+                },
+                action.timeout
+            )
+        }
+    }
+
     protected open fun executeAction(action: WaitForSelectorDisappearAction) {
         waitHelper({ action.selector.isVisible }, action.timeout)
     }
@@ -109,10 +127,15 @@ open class CachedExecutor(
         fun timeoutNotExpired() = !isTimeoutExpired(t1, duration)
 
         while (func() && timeoutNotExpired()) {
-            execute(WaitAction(Global.REFRESH_CACHE_TIMEOUT))
+            execute(
+                WaitAction(
+                    timeout =  Global.REFRESH_CACHE_TIMEOUT,
+                    logMessage = "waitHelper wait"
+                )
+            )
             refreshCache()
         }
-
+        Log.info("Completed waitHelper")
         return timeoutNotExpired()
     }
 
@@ -136,7 +159,7 @@ open class CachedExecutor(
         return cache.getElementsCount(selector.toXpath())
     }
 
-    override fun getAttr(selector: BaseSelector, attr: String): String {
+    override fun getAttr(selector: BaseSelector, attr: String, model: IBaseModel?): String {
         return Log.action("Get '$attr' of '${selector}'") {
             Log.xpath(selector)
             checkCache()
@@ -144,7 +167,7 @@ open class CachedExecutor(
         }
     }
 
-    override fun getAllAttrs(selector: BaseSelector): Collection<Pair<String, String>> {
+    override fun getAllAttrs(selector: BaseSelector, model: IBaseModel?): Collection<Pair<String, String>> {
         return Log.action("Get all attributes of '${selector}'") {
             Log.xpath(selector)
             checkCache()
@@ -152,7 +175,7 @@ open class CachedExecutor(
         }
     }
 
-    override fun getAttrs(selector: BaseSelector, attr: String): Collection<String> {
+    override fun getAttrs(selector: BaseSelector, attr: String, model: IBaseModel?): Collection<String> {
         return Log.action("Get all '$attr' of '${selector}'") {
             Log.xpath(selector)
             checkCache()
@@ -160,9 +183,10 @@ open class CachedExecutor(
         }
     }
 
-    protected open fun invalidateCache() {
+    open fun invalidateCache() {
         Log.trace("Cache marked as invalidated")
         needRefreshCache = true
+        (nav as Navigator).prevCurrentPage = null
     }
 
     protected open fun checkCache() {

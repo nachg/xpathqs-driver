@@ -18,13 +18,11 @@ import org.xpathqs.driver.navigation.base.IBlockSelectorNavigation
 import org.xpathqs.driver.navigation.base.INavigator
 import org.xpathqs.driver.widgets.IFormSelect
 
-class SelectableNavigation(
-    private val base: IBlockSelectorNavigation
-): IBlockSelectorNavigation {
-    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) {
+class SelectableNavigation : IBlockSelectorNavigation {
+    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) : Boolean {
         if(elem is BaseSelector) {
             if(elem.isVisible) {
-                return
+                return true
             }
             val selectable = (elem.rootParent as? Block)?.allInnerSelectors?.firstOrNull {
                 it.hasAnnotation(UI.Widgets.Selectable::class)
@@ -43,13 +41,13 @@ class SelectableNavigation(
                         }
 
                         if(elem.isVisible) {
-                            return
+                            return true
                         }
                     }
                 }
             }
         }
 
-        base.navigate(elem, navigator, model)
+        return false
     }
 }

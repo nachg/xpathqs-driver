@@ -20,13 +20,11 @@ import org.xpathqs.driver.util.getConstructor
 import org.xpathqs.driver.util.newInstance
 import kotlin.reflect.KMutableProperty
 
-class TriggerModelNavigation(
-    private val base: IBlockSelectorNavigation
-): IBlockSelectorNavigation {
-    override fun navigate(sel: ISelector, navigator: INavigator, model: IBaseModel) {
+class TriggerModelNavigation : IBlockSelectorNavigation {
+    override fun navigate(sel: ISelector, navigator: INavigator, model: IBaseModel) : Boolean {
         if(sel is BaseSelector) {
             if(sel.isVisible) {
-                return
+                return true
             }
             //val isValidationError = sel.hasAnnotation(UI.Widgets.ValidationError::class)
 
@@ -73,13 +71,13 @@ class TriggerModelNavigation(
                     }
 
                     if(sel.isVisible) {
-                        return
+                        return true
                     }
                 }
 
             }
         }
 
-        base.navigate(sel, navigator, model)
+        return false
     }
 }

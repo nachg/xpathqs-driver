@@ -1,26 +1,23 @@
 package org.xpathqs.driver.navigation.impl
 
-import org.xpathqs.core.selector.base.*
+import org.xpathqs.core.selector.base.BaseSelector
+import org.xpathqs.core.selector.base.ISelector
+import org.xpathqs.core.selector.base.findAnyParentAnnotation
 import org.xpathqs.core.selector.extensions.parents
 import org.xpathqs.driver.extensions.isVisible
 import org.xpathqs.driver.extensions.waitForVisible
 import org.xpathqs.driver.model.IBaseModel
-import org.xpathqs.log.Log
-import org.xpathqs.driver.model.IModelStates
 import org.xpathqs.driver.navigation.annotations.UI
 import org.xpathqs.driver.navigation.base.IBlockSelectorNavigation
-import org.xpathqs.driver.navigation.base.ILoadableDelegate
 import org.xpathqs.driver.navigation.base.IModelBlock
 import org.xpathqs.driver.navigation.base.INavigator
-import kotlin.reflect.full.createInstance
+import org.xpathqs.log.Log
 
-class ModelStateParentNavigation(
-    private val base: IBlockSelectorNavigation
-): IBlockSelectorNavigation {
-    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) {
+class ModelStateParentNavigation : IBlockSelectorNavigation {
+    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) : Boolean {
         if(elem is BaseSelector) {
             if(elem.isVisible) {
-                return
+                return true
             }
             elem.findAnyParentAnnotation<UI.Visibility.Dynamic>()?.let { p ->
                 if(p.modelState >= 0) {
@@ -36,13 +33,13 @@ class ModelStateParentNavigation(
                         }
 
                         if(elem.isVisible) {
-                            return
+                            return true
                         }
                     }
                 }
             }
         }
 
-        base.navigate(elem, navigator, model)
+        return false
     }
 }

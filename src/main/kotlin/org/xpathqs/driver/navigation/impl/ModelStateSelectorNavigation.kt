@@ -14,13 +14,11 @@ import org.xpathqs.driver.navigation.base.IBlockSelectorNavigation
 import org.xpathqs.driver.navigation.base.IModelBlock
 import org.xpathqs.driver.navigation.base.INavigator
 
-class ModelStateSelectorNavigation(
-    private val base: IBlockSelectorNavigation
-): IBlockSelectorNavigation {
-    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) {
+class ModelStateSelectorNavigation : IBlockSelectorNavigation {
+    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) : Boolean {
         if(elem is BaseSelector) {
             if(elem.isVisible) {
-                return
+                return true
             }
             val ann = elem.findAnnotation<UI.Visibility.Dynamic>()
             if(ann != null) {
@@ -55,13 +53,13 @@ class ModelStateSelectorNavigation(
                         }
 
                         if(elem.isVisible) {
-                            return
+                            return true
                         }
                     }
                 }
             }
         }
 
-        base.navigate(elem, navigator, model)
+        return false
     }
 }

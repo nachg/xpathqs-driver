@@ -11,7 +11,7 @@ class NavOrderGetter(
     val navOrder: Int
         get() {
             return source.findAnnotation<UI.Nav.Order>()?.let {
-                if(it.order != DEFAULT) it.order else it.type.value
+                if(it.order != -1) it.order else it.type.value
             } ?: DEFAULT
         }
 }

@@ -24,6 +24,8 @@ import org.xpathqs.driver.model.IBaseModel
 import org.xpathqs.log.Log
 import org.xpathqs.driver.navigation.annotations.UI
 import org.xpathqs.driver.navigation.base.*
+import org.xpathqs.driver.navigation.impl.AutocloseNavigation
+import org.xpathqs.driver.navigation.impl.NavigableDetermination
 import org.xpathqs.driver.page.Page
 import java.time.Duration
 
@@ -48,7 +50,6 @@ open class NavExecutor(
         e as CachedExecutor
     }
 
-
     override val actions: ActionExecMap = ActionExecMap().apply {
         set(MakeVisibleAction(Selector()).name) {
             executeAction(it as MakeVisibleAction)
@@ -56,11 +57,15 @@ open class NavExecutor(
     }
 
     override fun beforeAction(action: IAction) {
-        if(action is SelectorInteractionAction) {
+       // super.beforeAction(action)
+        if(action is SelectorInteractionAction && action.checkBeforeAction) {
             Log.action(Messages.NavExecutor.beforeAction(action)) {
             //    val ann = (action.on.rootParent as? BaseSelector)?.findAnnotation<NavOrder>()
+                AutocloseNavigation().getModals(action.on)?.forEach {
+                    it.close()
+                }
 
-                var curPage = navigator.currentPage
+                var curPage = action.currentPage
                 val sourcePage = action.on.rootParent as? INavigable
 
                 val blockIsVisible = (sourcePage !is Page
@@ -69,6 +74,11 @@ open class NavExecutor(
                 if(sourcePage != null && curPage != sourcePage && !blockIsVisible && sourcePage is Page) {
                     Log.action("Navigation required") {
                         Log.action("trying to autoclose current block") {
+
+                            if(sourcePage.isLoadingError(action.on)) {
+                                throw Exception("beforeAction LoadingError")
+                            }
+
                             if((curPage as? Block)?.hasAnnotation(UI.Nav.Autoclose::class) == true) {
                                 val closeBtn = (curPage as Block).findWithAnnotation(UI.Widgets.Back::class) ?:
                                 (curPage as Block).findWithAnnotation(UI.Widgets.ClickToFocusLost::class)
@@ -78,7 +88,7 @@ open class NavExecutor(
                                     (curPage as Page).waitForDisappear(Duration.ofSeconds(2))
                                     repeat(10) {
                                         val cp = try {
-                                            navigator.currentPage
+                                            action.currentPage
                                         } catch (e: Exception) {
                                             null
                                         }
@@ -89,7 +99,7 @@ open class NavExecutor(
                                         refreshCache()
                                     }
                                 }
-                                curPage = navigator.currentPage
+                                curPage = action.currentPage
                                 (curPage as? ILoadable)?.waitForLoad(Duration.ofSeconds(10))
                             }
                         }
@@ -97,10 +107,10 @@ open class NavExecutor(
 
                         val ann = action.on.findAnnotation<UI.Visibility.State>() ?: action.on.findAnyParentAnnotation<UI.Visibility.State>()
                         val state = ann?.value ?: UI.Visibility.UNDEF_STATE
-                        navigator.navigate(NavWrapper(curPage), NavWrapper.get(sourcePage, state))
+                        navigator.navigate(NavWrapper(curPage as INavigable), NavWrapper.get(sourcePage, state))
                     }
 
-                    val endPage = navigator.currentPage as Page
+                    val endPage = action.currentPage as Page
                     Log.info("Текущая страница: " + endPage.name)
                 }
 
@@ -121,7 +131,7 @@ open class NavExecutor(
                 if(action.on.isHidden) {
                     var navigations: GraphPath<NavWrapper, Edge>? =
                         if(action.on.base is INavigable) {
-                            navigator.findPath(NavWrapper(curPage), NavWrapper.get(action.on.base as INavigable))
+                            navigator.findPath(NavWrapper(curPage as INavigable), NavWrapper.get(action.on.base as INavigable))
                         } else null
 
                     if(navigations != null) {
@@ -149,6 +159,14 @@ open class NavExecutor(
                 }
 
                 processBeforeActionExtensions(action)
+
+                if(action.on.isHidden && action is MakeVisibleAction) {
+                    (action.currentPage as? NavigableDetermination)?.navigate(
+                        elem = action.on,
+                        navigator = navigator,
+                        model = IBaseModel()
+                    )
+                }
             }
         }
     }
@@ -162,9 +180,11 @@ open class NavExecutor(
         //the processing of this action now in "before" interaction
     }
 
-    override fun getAttr(selector: BaseSelector, attr: String): String {
-        selector.makeVisible()
-        return super.getAttr(selector, attr)
+    override fun getAttr(selector: BaseSelector, attr: String, model: IBaseModel?): String {
+        selector.makeVisible(model)
+        return super.getAttr(selector, attr, model)
     }
 
+    private val SelectorInteractionAction.currentPage: Page?
+        get() = this.model?.currentPage ?: navigator.currentPage as? Page
 }

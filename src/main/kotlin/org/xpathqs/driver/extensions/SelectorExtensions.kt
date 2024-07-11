@@ -2,15 +2,15 @@ package org.xpathqs.driver.extensions
 
 import org.xpathqs.core.reflection.freeze
 import org.xpathqs.core.selector.base.BaseSelector
-import org.xpathqs.core.selector.base.ISelector
 import org.xpathqs.core.selector.block.Block
+import org.xpathqs.core.selector.block.allInnerSelectorBlocks
+import org.xpathqs.core.selector.block.allInnerSelectors
 import org.xpathqs.core.selector.extensions.core.clone
 import org.xpathqs.core.selector.extensions.parents
 import org.xpathqs.core.selector.selector.Selector
 import org.xpathqs.driver.actions.*
 import org.xpathqs.driver.actions.SelectorInteractionAction.Companion.AFTER_ACTION_DELAY
 import org.xpathqs.driver.actions.SelectorInteractionAction.Companion.AFTER_ACTION_LAMBDA
-import org.xpathqs.driver.actions.SelectorInteractionAction.Companion.AFTER_ACTION_WAIT
 import org.xpathqs.driver.actions.SelectorInteractionAction.Companion.BEFORE_ACTION_DELAY
 import org.xpathqs.driver.actions.SelectorInteractionAction.Companion.BEFORE_ACTION_LAMBDA
 import org.xpathqs.driver.constants.Global
@@ -18,17 +18,23 @@ import org.xpathqs.driver.executor.CachedExecutor
 import org.xpathqs.driver.model.IBaseModel
 import org.xpathqs.driver.model.default
 import org.xpathqs.driver.navigation.base.IModelBlock
-import org.xpathqs.driver.page.Page
+import org.xpathqs.driver.navigation.impl.PageState.Companion.isSelfStaticSelector
 import org.xpathqs.driver.selector.NearSelector
 import org.xpathqs.driver.selector.SecretInput
 import org.xpathqs.driver.widgets.IFormInput
 import org.xpathqs.driver.widgets.IFormRead
-import java.lang.Exception
+import org.xpathqs.log.Log
 import java.time.Duration
 
 val <T : BaseSelector> T.isVisible: Boolean
     get() {
         if(this is Block && this.isBlank) {
+            if(this.staticBlockSelectors.isEmpty()) {
+                Log.error("Impossible to determinate the visibility of block")
+                this.allInnerSelectors.firstOrNull {
+                    it.isVisible
+                } != null
+            }
             return this.staticBlockSelectors.firstOrNull { it.isHidden } == null
         }
         return Global.executor.isPresent(this)
@@ -61,9 +67,18 @@ fun <T : BaseSelector> Collection<T>.waitForAllVisible(duration: Duration = Glob
     )
 }
 
+fun <T : BaseSelector> Collection<T>.waitForAllDisappear(duration: Duration = Global.WAIT_FOR_ELEMENT_TIMEOUT) {
+    Global.executor.execute(
+        WaitForAllSelectorDisappearAction(this, duration)
+    )
+}
+
 fun wait(duration: Duration, logMsg: String) {
     Global.executor.execute(
-        WaitAction(duration)
+        WaitAction(
+            timeout = duration,
+            logMessage = logMsg
+        )
     )
 }
 
@@ -92,9 +107,18 @@ fun <T : BaseSelector> T.waitForDisappear(duration: Duration = Global.WAIT_FOR_E
     return this
 }
 
-fun <T : BaseSelector> T.click(moveMouse: Boolean = false): T {
+fun <T : BaseSelector> T.click(
+    moveMouse: Boolean = false,
+    model: IBaseModel? = null,
+    checkBeforeAction: Boolean = true
+): T {
     Global.executor.execute(
-        ClickAction(this, moveMouse)
+        ClickAction(
+            on = this,
+            moveMouse = moveMouse,
+            model = model,
+            checkBeforeAction = checkBeforeAction
+        )
     )
     return this
 }
@@ -128,9 +152,9 @@ fun <T : BaseSelector> T.file(value: String): T {
     return this
 }
 
-fun <T : BaseSelector> T.clear(clickSelector: BaseSelector? = null): T {
+fun <T : BaseSelector> T.clear(clickSelector: BaseSelector? = null, model: IBaseModel? = null): T {
     Global.executor.execute(
-        ClearAction(this, clickSelector ?: this)
+        ClearAction(this, clickSelector ?: this, model = model)
     )
     return this
 }
@@ -159,7 +183,6 @@ val <T : BaseSelector> T.stringValue: String
         }
     }
 
-
 val <T : BaseSelector> T.isChecked: Boolean
     get() {
     return return try {
@@ -171,8 +194,8 @@ val <T : BaseSelector> T.isChecked: Boolean
 }
 
 
-fun <T : BaseSelector> T.getAttr(name: String) =
-    Global.executor.getAttr(this, name)
+fun <T : BaseSelector> T.getAttr(name: String, model: IBaseModel? = null) =
+    Global.executor.getAttr(this, name, model)
 
 fun <T : BaseSelector> T.getAllAttrs() =
     Global.executor.getAllAttrs(this)
@@ -187,9 +210,12 @@ fun <T : BaseSelector> T.isSecret(): Boolean {
     return this is SecretInput
 }
 
-fun <T : BaseSelector> T.makeVisible(): T {
+fun <T : BaseSelector> T.makeVisible(model: IBaseModel? = null): T {
     Global.executor.execute(
-        MakeVisibleAction(this)
+        MakeVisibleAction(
+            to = this,
+            model = model
+        )
     )
     return this
 }
@@ -225,6 +251,14 @@ fun <T : BaseSelector> T.beforeAction(lambda: ()->Unit): T {
 
 fun <T : BaseSelector> T.afterAction(lambda: ()->Unit): T {
     this.customPropsMap[AFTER_ACTION_LAMBDA] = lambda
+    return this
+}
+
+fun <T : BaseSelector> T.ajaxInput(
+    onSuccess: BaseSelector,
+    onError: BaseSelector
+): T {
+    this.customPropsMap[SelectorInteractionAction.AFTER_AJAX_INPUT] = onSuccess to onError
     return this
 }
 

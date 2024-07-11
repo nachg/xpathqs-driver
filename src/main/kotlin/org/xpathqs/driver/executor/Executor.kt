@@ -12,6 +12,8 @@ import org.xpathqs.driver.core.IDriver
 import org.xpathqs.driver.exceptions.XPathQsException
 import org.xpathqs.driver.log.action
 import org.xpathqs.driver.log.xpath
+import org.xpathqs.driver.model.IBaseModel
+import org.xpathqs.driver.navigation.impl.AutocloseNavigation
 import org.xpathqs.log.Log
 import org.xpathqs.log.style.StyledString
 
@@ -53,15 +55,15 @@ open class Executor(
         return false
     }
 
-    override fun getAttr(selector: BaseSelector, attr: String): String {
+    override fun getAttr(selector: BaseSelector, attr: String, model: IBaseModel?): String {
         return ""
     }
 
-    override fun getAttrs(selector: BaseSelector, attr: String): Collection<String> {
+    override fun getAttrs(selector: BaseSelector, attr: String, model: IBaseModel?): Collection<String> {
         return emptyList()
     }
 
-    override fun getAllAttrs(selector: BaseSelector): Collection<Pair<String, String>> {
+    override fun getAllAttrs(selector: BaseSelector, model: IBaseModel?): Collection<Pair<String, String>> {
         return emptyList()
     }
 
@@ -81,7 +83,6 @@ open class Executor(
                 Global.executor.execute(
                     WaitForSelectorAction(action.on)
                 )
-
                 processBeforeActionExtensions(action)
 
                 Log.xpath(action.on)
@@ -99,10 +100,13 @@ open class Executor(
             ) {
                 processAfterActionExtensions(action)
             }
+        } else {
+            Log.info("After action $action")
         }
     }
 
     protected open fun executeAction(action: WaitAction) {
+        Log.error(action.toString())
         Thread.sleep(action.timeout.toMillis())
     }
 }

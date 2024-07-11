@@ -59,7 +59,11 @@ fun Block.getStaticSelectorsWithState(
             }
         }.filter {
             if(onlyCurrentBlock) {
-                isSelfStaticSelector(it)
+                val parentCheck = if(it.base != this && it.base is BaseSelector) {
+                    isSelfStaticSelector(it.base as BaseSelector)
+                } else true
+
+                isSelfStaticSelector(it) && parentCheck
             } else {
                 isStaticSelector(it)
             }

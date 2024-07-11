@@ -43,6 +43,7 @@ class LoadingParser(
 
         val anyColl = ArrayList<BaseSelector>()
         val allColl = ArrayList<BaseSelector>()
+        val noneColl = ArrayList<BaseSelector>()
         val oneOfSelectors = block.getOneOfSelectors()
 
         block.findAnnotation<UI.Nav.WaitForLoad>()?.let {
@@ -60,9 +61,10 @@ class LoadingParser(
                 ?: sel.findAnnotation<UI.Nav.WaitForLoad>()
             if(ann != null) {
                 when(ann.type) {
-                    WaitForLoadEnum.LOAD_SELF -> {}
                     WaitForLoadEnum.LOAD_ANY -> anyColl.add(sel)
                     WaitForLoadEnum.LOAD_ALL -> allColl.add(sel)
+                    WaitForLoadEnum.LOAD_NONE -> {noneColl.add(sel)}
+                    WaitForLoadEnum.LOAD_SELF -> {}
                     WaitForLoadEnum.LOAD_ERROR -> {}
                 }
             }
@@ -81,18 +83,25 @@ class LoadingParser(
         }
 
         return if(anyColl.isNotEmpty()) {
-             Loading(loadAnySelectors = anyColl)
+            Loading(
+                loadAnySelectors = anyColl,
+                loadNoneSelectors = noneColl
+            )
         } else if(filteredAll.isNotEmpty()) {
-            Loading(loadAllSelectors = filteredAll)
+            Loading(
+                loadAllSelectors = filteredAll,
+                loadNoneSelectors = noneColl
+            )
+
         } else {
             //BackendGroup ...
             Loading(
-                loadAllSelectors =
-                if(block is IPageState) {
-                    selectors
-                } else {
-                    (block as INavigableDetermination).determination.exist.ifEmpty { selectors }
-                }
+                loadAllSelectors = if(block is IPageState) {
+                        selectors
+                    } else {
+                        (block as INavigableDetermination).determination.exist.ifEmpty { selectors }
+                    },
+                loadNoneSelectors = noneColl
             )
         }
     }

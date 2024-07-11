@@ -94,6 +94,7 @@ class PageState(
                     && !it.hasAnnotation(UI.Visibility.Backend::class)
                     && !it.hasAnnotation(UI.Widgets.ValidationError::class)
                     && !it.hasAnnotation(UI.Widgets.OptionItem::class)
+
                     && (it.property?.visibility == KVisibility.PUBLIC
                             || it.property == null
                         )

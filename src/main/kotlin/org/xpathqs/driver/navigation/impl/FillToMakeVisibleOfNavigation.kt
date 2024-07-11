@@ -15,13 +15,11 @@ import org.xpathqs.driver.navigation.base.INavigator
 
 private const val FILL_TO_MAKE_VISIBLE_OF = "LINKED_VISIBILITY_FILLED_KEY"
 
-class FillToMakeVisibleOfNavigation(
-    private val base: IBlockSelectorNavigation
-): IBlockSelectorNavigation {
-    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) {
+class FillToMakeVisibleOfNavigation : IBlockSelectorNavigation {
+    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) : Boolean {
         if(elem is BaseSelector) {
             if(elem.isVisible) {
-                return
+                return true
             }
             val elems = (elem.rootParent as? Block)?.allInnerSelectors?.filter {
                 it.customPropsMap.containsKey(FILL_TO_MAKE_VISIBLE_OF)
@@ -37,12 +35,12 @@ class FillToMakeVisibleOfNavigation(
                         }
                     }
                     if(elem.isVisible) {
-                        return
+                        return true
                     }
                 }
             }
         }
-        base.navigate(elem, navigator, model)
+        return false
     }
 }
 

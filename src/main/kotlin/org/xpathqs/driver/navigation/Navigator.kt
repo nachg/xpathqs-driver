@@ -4,6 +4,7 @@ import org.jgrapht.GraphPath
 import org.jgrapht.alg.shortestpath.DijkstraShortestPath
 import org.jgrapht.graph.SimpleDirectedWeightedGraph
 import org.xpathqs.core.selector.base.ISelector
+import org.xpathqs.core.selector.base.findAnnotation
 import org.xpathqs.core.selector.block.Block
 import org.xpathqs.core.selector.extensions.rootParent
 import org.xpathqs.driver.constants.Messages
@@ -12,6 +13,7 @@ import org.xpathqs.driver.executor.CachedExecutor
 import org.xpathqs.driver.executor.IExecutor
 import org.xpathqs.driver.extensions.ms
 import org.xpathqs.driver.extensions.wait
+import org.xpathqs.driver.navigation.annotations.NavOrderType
 import org.xpathqs.log.Log
 import org.xpathqs.driver.navigation.annotations.UI
 import org.xpathqs.driver.navigation.annotations.UI.Visibility.Companion.UNDEF_STATE
@@ -131,8 +133,13 @@ open class Navigator : INavigator {
 
    private val sortedPages: Collection<INavigableDetermination> by lazy {
        pages.sortByDescending { p ->
-           val ann = (p as Block).annotations.find { it is UI.Nav.Order } as? UI.Nav.Order
-           ann?.type?.value ?: UI.Nav.Order.DEFAULT
+           (p as Block).findAnnotation<UI.Nav.Order>()?.let { ann ->
+               if(ann.order == -1) {
+                   ann.type.value
+               } else {
+                   ann.order
+               }
+           } ?: UI.Nav.Order.DEFAULT
        }
        pages
    }

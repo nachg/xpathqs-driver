@@ -22,14 +22,14 @@
 
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-version = "0.1.7"
+version = "0.1.8"
 
 plugins {
-    kotlin("jvm") version "1.7.10"
+    kotlin("jvm") version "1.9.20"
     id("org.jetbrains.dokka") version "1.4.32"
     `java-library`
     jacoco
-    maven
+ //   maven
     `maven-publish`
     signing
 }
@@ -57,7 +57,7 @@ dependencies {
     api("org.xpathqs:gwt:0.2.6")
 
     api("org.jgrapht:jgrapht-core:1.5.1")
-    implementation ("org.jetbrains.kotlin:kotlin-reflect:1.7.10")
+    implementation ("org.jetbrains.kotlin:kotlin-reflect:1.9.20")
     implementation(kotlin("stdlib"))
 
     implementation("org.apache.commons:commons-lang3:3.12.0")

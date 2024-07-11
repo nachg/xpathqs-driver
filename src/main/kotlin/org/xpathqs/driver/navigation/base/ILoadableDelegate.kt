@@ -12,4 +12,8 @@ interface ILoadableDelegate : ILoadable {
     override fun waitForLoad(duration: Duration) {
         loadable.waitForLoad(duration)
     }
+
+    override fun waitForDisappear(duration: Duration) {
+        loadable.waitForDisappear(duration)
+    }
 }

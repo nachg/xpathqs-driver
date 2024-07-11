@@ -2,6 +2,7 @@ package org.xpathqs.driver.navigation.annotations
 
 import org.xpathqs.core.selector.base.BaseSelector
 import org.xpathqs.core.selector.block.Block
+import org.xpathqs.driver.navigation.annotations.UI.Nav.PathTo.Companion.UNDEF
 import org.xpathqs.driver.navigation.annotations.UI.Visibility.Companion.UNDEF_STATE
 import kotlin.reflect.KClass
 
@@ -128,7 +129,8 @@ class UI {
 
             //Annotation may be applied for specific page states
             val canApplyForGlobalState: Int = UNDEF_STATE,
-            val canApplyForGlobalStateGroup: Int = UNDEF_STATE
+            val canApplyForGlobalStateGroup: Int = UNDEF_STATE,
+            val ajax: Boolean = false
         )
 
         @Target(
@@ -234,7 +236,7 @@ class UI {
         )
         @Retention(AnnotationRetention.RUNTIME)
         annotation class Order(
-            val order: Int = DEFAULT,
+            val order: Int = -1,
             val type: NavOrderType = NavOrderType.DEFAULT
         ) {
             companion object {

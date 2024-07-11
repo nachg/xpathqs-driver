@@ -8,6 +8,7 @@ import org.xpathqs.core.selector.block.Block
 import org.xpathqs.core.selector.block.findAllWithAnnotation
 import org.xpathqs.core.selector.block.findWithAnnotation
 import org.xpathqs.core.selector.extensions.parents
+import org.xpathqs.core.selector.extensions.rootParent
 import org.xpathqs.driver.exceptions.XPathQsException
 import org.xpathqs.driver.extensions.*
 import org.xpathqs.driver.model.IBaseModel
@@ -25,34 +26,24 @@ import java.time.Duration
 open class Navigable(
     protected val navigator: Navigator,
     protected val block: INavigable,
-    protected val selectorNavigator: IBlockSelectorNavigation
-        = ModelStateSelectorNavigation(
-            ModelStateParentNavigation(
-                FormSelectorSelectOptionNavigation(
-                    CheckBoxNavigation(
-                        CheckBoxLinkedNavigation(
-                            SelectableNavigation(
-                                ClickToBackNavigation(
-                                    InternalPageStateNavigation(
-                                        VisibilityMapInputNavigation(
-                                            VisibleWhenNavigation(
-                                                LinkedVisibilityNavigation(
-                                                    FillToMakeVisibleOfNavigation(
-                                                        TriggerModelNavigation(
-                                                            BlockSelectorNavigationImpl()
-                                                        )
-                                                    )
-                                                )
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        )
+    protected val selectorNavigators: List<IBlockSelectorNavigation> = listOf(
+        DirectSelectorNavigation(),
+       // AutocloseNavigation(),
+        ModelStateSelectorNavigation(),
+        FormSelectorSelectOptionNavigation(),
+        ModelStateParentNavigation(),
+        CheckBoxNavigation(),
+        CheckBoxLinkedNavigation(),
+        SelectableNavigation(),
+        ClickToBackNavigation(),
+        InternalPageStateNavigation(),
+        VisibilityMapInputNavigation(),
+        VisibleWhenNavigation(),
+        LinkedVisibilityNavigation(),
+        FillToMakeVisibleOfNavigation(),
+    //    TriggerModelNavigation(),
+        BlockSelectorNavigationImpl()
+    )
 ) : INavigable, IBlockSelectorNavigation {
     override fun addNavigation(
         to: INavigable,
@@ -90,14 +81,37 @@ open class Navigable(
         }*/
     }
 
-    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) {
+    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) : Boolean {
+        if(((elem as? BaseSelector)?.rootParent as? Page)?.isLoadingError(elem) == true) {
+            Log.error("Selector was not loaded")
+            throw Exception("Selector was not loaded")
+        }
         (elem as? BaseSelector)?.parents?.let { parents ->
             parents.reversed().forEach { parent ->
                 if(parent.name.isNotEmpty()
                     && parent.xpath.isNotEmpty()
                     && parent.isHidden
                 ) {
-                    selectorNavigator.navigate(parent, navigator, model)
+                    if((elem.rootParent as? Page)?.isLoadingError(elem) == true) {
+                        Log.error("Selector was not loaded")
+                        throw Exception("Selector was not loaded")
+                    }
+
+                    selectorNavigators.filter {
+                        it.isSelfApply(parent, navigator, model)
+                    }.forEach {
+                        if(it.navigate(parent, navigator, model)) {
+                            return@forEach
+                        }
+                    }
+                    if(parent.isHidden) {
+                        selectorNavigators.forEach {
+                            if (it.navigate(parent, navigator, model)) {
+                                return@forEach
+                            }
+                        }
+                    }
+
                     if(parent.isHidden) {
                         Log.error("Navigation to the $parent was not completed")
                     }
@@ -109,14 +123,12 @@ open class Navigable(
             (elem as? BaseSelector)?.parents?.filterIsInstance<ISelectorNav>()?.forEach {
                 it.navigateDirectly(elem)
                 if(elem.isVisible) {
-                    return
+                    return true
                 }
             }
         }
 
-       /* if((elem as? BaseSelector)?.isHidden == true) {
-            selectorNavigator.navigate(elem, navigator)
-        }*/
+       return false
     }
 
     override fun navigate(state: Int) {

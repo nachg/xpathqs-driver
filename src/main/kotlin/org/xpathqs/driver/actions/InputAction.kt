@@ -11,16 +11,17 @@ import java.time.Duration
 open class InputAction(
     var text: String,
     val to: BaseSelector,
-    var model: IBaseModel? = null,
     val clearBeforeInput: Boolean = true,
     val validateInput: Boolean = true,
     val clickSelector: BaseSelector = to,
+    model: IBaseModel? = null,
     beforeActionDelay: Duration = Duration.ZERO,
     afterActionDelay: Duration = Duration.ZERO,
 ) : SelectorInteractionAction(
     on = to,
     beforeActionDelay = beforeActionDelay,
-    afterActionDelay = afterActionDelay
+    afterActionDelay = afterActionDelay,
+    model = model
 ) {
     override fun toStyledString(): StyledString {
         val value = if (to.isSecret() && text.isNotEmpty()) "'******'" else "'$text'"

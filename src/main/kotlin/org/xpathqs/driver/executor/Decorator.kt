@@ -9,6 +9,7 @@ import org.xpathqs.driver.exceptions.XPathQsException
 import org.xpathqs.log.Log
 import org.xpathqs.driver.log.action
 import org.xpathqs.driver.log.xpath
+import org.xpathqs.driver.model.IBaseModel
 
 open class Decorator(
     val origin: IExecutor
@@ -34,15 +35,15 @@ open class Decorator(
         return origin.isPresent(selector)
     }
 
-    override fun getAttr(selector: BaseSelector, attr: String): String {
-        return origin.getAttr(selector, attr)
+    override fun getAttr(selector: BaseSelector, attr: String, model: IBaseModel?): String {
+        return origin.getAttr(selector, attr, model)
     }
 
-    override fun getAllAttrs(selector: BaseSelector): Collection<Pair<String, String>> {
+    override fun getAllAttrs(selector: BaseSelector, model: IBaseModel?): Collection<Pair<String, String>> {
         return origin.getAllAttrs(selector)
     }
 
-    override fun getAttrs(selector: BaseSelector, attr: String): Collection<String> {
+    override fun getAttrs(selector: BaseSelector, attr: String, model: IBaseModel?): Collection<String> {
         return origin.getAttrs(selector, attr)
     }
 

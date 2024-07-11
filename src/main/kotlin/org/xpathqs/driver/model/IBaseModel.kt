@@ -14,11 +14,14 @@ import org.xpathqs.core.selector.extensions.simpleName
 import org.xpathqs.core.selector.extensions.text
 import org.xpathqs.driver.constants.Global
 import org.xpathqs.driver.exceptions.XPathQsException
+import org.xpathqs.driver.executor.Decorator
 import org.xpathqs.driver.extensions.*
+import org.xpathqs.driver.log.action
 import org.xpathqs.log.Log
 import org.xpathqs.driver.navigation.NavExecutor
 import org.xpathqs.driver.navigation.annotations.Model
 import org.xpathqs.driver.navigation.annotations.UI
+import org.xpathqs.driver.navigation.annotations.UI.Nav.PathTo.Companion.UNDEF
 import org.xpathqs.driver.navigation.base.*
 import org.xpathqs.driver.page.Page
 import org.xpathqs.driver.util.clone
@@ -44,6 +47,7 @@ open class IBaseModel(
 ) {
     private var mappingsInitialized = false
     var isInitialized = false
+    var refreshCurrentPageOnFill = false
 
     var triggerModelNavigationByProp = true
 
@@ -64,9 +68,11 @@ open class IBaseModel(
     private var isNullSelector: Boolean = false
     private var isDelegatesUsed: Boolean = false
 
-    private val currentPage: Page?
+    val currentPage: Page?
         get() {
-            return (Global.executor as? NavExecutor)?.navigator?.currentPage as? Page
+            return if(refreshCurrentPageOnFill)
+                navExecutor?.navigator?.currentPage as? Page
+            else view?.rootParent as? Page
         }
 
     open val reflectionMappings: LinkedHashMap<KProperty<*>, BaseSelector>
@@ -173,39 +179,57 @@ open class IBaseModel(
     private var submitCalled = false
     
     open fun submit(
-        loadDuration: Duration = 30.seconds,
+        loadDuration: Duration? = null,
         waitForLoad: Boolean = true
     ) {
-        submitCalled = false
+        Log.action("submit 2") {
+            submitCalled = false
 
-      //  if(!propTrig) {
+            //  if(!propTrig) {
             fill(other = modelFromUi)
-      //  }
-        beforeSubmit()
-        val originPage = view?.rootParent as? Block
+            //  }
+            refreshCurrentPageOnFill = true
+            beforeSubmit()
+            val originPage = if(view is Page) view else view?.rootParent as? Block
 
-        if(hasValidationError) {
-            Log.error("Form was not filled correctly")
-        }
+            if(hasValidationError) {
+                Log.error("Form was not filled correctly")
+            }
 
-        if(!submitCalled) {
-            findWidget(UI.Widgets.Submit::class)?.click()
-        }
-        afterSubmit()
-        if(waitForLoad) {
-            val p = findWidget(UI.Nav.PathTo::class)
-            if(p != null) {
-                val pathTo = p.findAnnotation<UI.Nav.PathTo>()?.bySubmit?.objectInstance
-                if(pathTo is ILoadable) {
-                    pathTo.waitForLoad(2.seconds)
-                    val currentPage = currentPage
+            if(!submitCalled) {
+                findWidget(UI.Widgets.Submit::class)?.click(model = this@IBaseModel)
+            }
+            afterSubmit()
+            if(waitForLoad) {
+                val p = findWidget(UI.Nav.PathTo::class)
+                if(p != null) {
+                    val pathTo = p.findAnnotation<UI.Nav.PathTo>()?.bySubmit?.objectInstance
+                    if(pathTo is ILoadable) {
+                        var sec = p.findAnnotation<UI.Nav.PathTo>()?.loadSeconds?.let {
+                            if(it == UNDEF) 30.seconds else it.seconds
+                        } ?: 30.seconds
 
-                    if(currentPage == pathTo) {
-                        pathTo.waitForLoad(loadDuration)
-                    } else {
-                        if(currentPage == originPage) {
-                            if(hasValidationError) {
-                                Log.error("Form was not filled correctly")
+                        runCatching {
+                            pathTo.waitForLoad(2.seconds)
+                        }
+                        var cp = currentPage
+                        if(cp == null) {
+                            navExecutor?.cachedExecutor?.invalidateCache()
+                            cp = currentPage
+                            if(cp == null) {
+                                throw Exception("Unable to determinate the current page")
+                            }
+                        }
+                        if(cp == pathTo) {
+                            pathTo.waitForLoad(loadDuration ?: sec)
+                        } else {
+                            if(cp == originPage) {
+                                if(hasValidationError) {
+                                    Log.error("Form was not filled correctly")
+                                } else {
+                                    Log.info("Continue waiting of page load")
+                                    pathTo.waitForLoad(loadDuration ?: sec)
+                                }
                             }
                         }
                     }
@@ -220,14 +244,14 @@ open class IBaseModel(
                 val s = findSelByProp(it)
                 makeVisible(s, it, true)
                 if(s is IFormInput) {
-                    s.clear()
+                    s.clear(model = this@IBaseModel)
                 } else {
                     (it as KMutableProperty<*>).setter.call(this, "")
                 }
                 val block = s.rootParent
                 if(block is Block) {
                     block.findWithAnnotation(UI.Widgets.ClickToFocusLost::class)?.let {
-                        it.click()
+                        it.click(model = this@IBaseModel)
                         wait(100.ms, "short delay after click to focus lost")
                     }
                 }
@@ -286,7 +310,7 @@ open class IBaseModel(
                 }
 
                 if (sel.isHidden) {
-                    mappings.values.find { it.name != sel.name }?.click()
+                    mappings.values.find { it.name != sel.name }?.click(model = this@IBaseModel)
                 }
                 if (sel.isHidden) {
                     submit()
@@ -331,9 +355,9 @@ open class IBaseModel(
                     if (sel is IFormInput) {
 
                         if(v is String && v.isEmpty()) {
-                            sel.clear()
+                            sel.clear(model = this@IBaseModel)
                         } else {
-                            sel.input(v.toString(), this@IBaseModel)
+                            sel.input(v.toString(), model = this@IBaseModel)
                         }
                     } else {
                         sel.input(v.toString(), model = this@IBaseModel)
@@ -355,6 +379,12 @@ open class IBaseModel(
             }
         }
     }
+
+    private val navExecutor: NavExecutor
+        get() {
+            if(Global.executor is NavExecutor) return Global.executor as NavExecutor
+            return (Global.executor as Decorator).origin as NavExecutor
+        }
 
     open fun fill(noSubmit: Boolean = true, checkLambda: (() -> Boolean)? = null, other: IBaseModel? = null) {
         filledProps.clear()
@@ -448,7 +478,7 @@ open class IBaseModel(
 
                 (sel.rootParent as Block).findWithAnnotation(
                     UI.Widgets.Submit::class
-                )?.waitForVisible()?.click() ?: throw Exception("No Submit Widget button")
+                )?.waitForVisible()?.click(model = this@IBaseModel) ?: throw Exception("No Submit Widget button")
 
                 submitCalled = true
             }
@@ -482,28 +512,38 @@ open class IBaseModel(
     }
 
     open fun submit(page: INavigable) {
-        if(this is IOrderedSteps) {
-            val stepsToSubmit = ArrayList<InputAction>()
-            steps.forEach { action ->
-                if(action.type == InputType.DYNAMIC
-                    || (action.type == InputType.SUBMIT && action.props.isEmpty())
-                ) {
-                    stepsToSubmit.add(action)
-                } else {
-                    val sel = getSelector(action)
-                    page as BaseSelector
-                    if(sel.parents.find { it.name == page.name} != null) {
+        Log.action("Submit") {
+            if(this is IOrderedSteps) {
+                val stepsToSubmit = ArrayList<InputAction>()
+                steps.forEach { action ->
+                    if(action.type == InputType.DYNAMIC
+                        || (action.type == InputType.SUBMIT && action.props.isEmpty())
+                    ) {
                         stepsToSubmit.add(action)
+                    } else {
+                        val sel = getSelector(action)
+                        page as BaseSelector
+                        if(sel.parents.find { it.name == page.name} != null) {
+                            stepsToSubmit.add(action)
+                        }
                     }
                 }
-            }
-            evalActions(stepsToSubmit, other = modelFromUi)
-        } else {
-            if(states.containsKey(CORRECT)) {
-                submit(CORRECT)
+                evalActions(stepsToSubmit, other = modelFromUi)
             } else {
-                submit()
+                if(states.containsKey(CORRECT)) {
+                    submit(CORRECT)
+                } else {
+                    submit()
+                }
             }
+        }
+    }
+
+    fun readValue(sel: BaseSelector): String {
+        return if(sel is IFormRead) {
+            sel.readString(this@IBaseModel)
+        } else {
+            sel.getAttr(Global.TEXT_ARG, model = this).ifEmpty { sel.getAttr("value", model = this) }
         }
     }
 
@@ -746,7 +786,7 @@ open class IBaseModel(
             }
             if(sel.isHidden) {
                 Log.info("Selector is still hidden. Lets make it visible via navigation")
-                sel.makeVisible()
+                sel.makeVisible(model = this)
             }
         }
     }
@@ -780,11 +820,15 @@ open class IBaseModel(
 
         fun compose(selectorsMap: Map<BaseSelector, InputMethod>, default: String = "") =
             Delegates.observable(default) { prop, _, new ->
+                val visible = selectorsMap.entries.find {
+                    it.key.isVisible
+                }?.apply {
+                    addMapping(prop, this.key)
+                }
+
                 if(isReadyForUiInput()) {
-                    selectorsMap.entries.find {
-                        it.key.isVisible
-                    }?.let {
-                        addMapping(prop, it.key)
+                    visible?.let {
+                        //addMapping(prop, it.key)
                         when(it.value) {
                             InputMethod.INPUT -> inputImpl(it.key, prop, new)
                             InputMethod.CLICK -> clickImpl(it.key, prop, new)
@@ -799,6 +843,28 @@ open class IBaseModel(
             Delegates.observable(default) { prop, _, new ->
                 inputImpl(mapping, prop, new)
             }
+
+        fun input(mapping: Collection<BaseSelector>, default: String? = null) =
+            compose(
+                mapping.associateWith { InputMethod.INPUT },
+                default ?: ""
+            )
+
+
+        fun composeInput(vararg mappings: BaseSelector, default: String? = null) =
+            compose(
+                mappings.associateWith { InputMethod.INPUT },
+                default ?: ""
+            )
+
+        fun inputOrRead(input: BaseSelector, read: BaseSelector, default: String? = null) =
+            compose(
+                mapOf(
+                    input to InputMethod.INPUT,
+                    read to InputMethod.NOTHING
+                ),
+                default ?: ""
+            )
 
         internal fun inputImpl(mapping: BaseSelector? = null, prop: KProperty<*>, new: String?) {
             addMapping(prop, mapping)
@@ -849,7 +915,7 @@ open class IBaseModel(
                                     sel.input(new, this@IBaseModel)
                                 }
                             } else {
-                                sel.input(new)
+                                sel.input(new, model = this@IBaseModel)
                             }
                             filledProps.add(prop)
                         }
@@ -908,7 +974,7 @@ open class IBaseModel(
                         } else if (sel is IFormInput) {
                             sel.input(new, this@IBaseModel)
                         } else {
-                            sel.text(new).click()
+                            sel.text(new).click(model = this@IBaseModel)
                         }
                         filledProps.add(prop)
                     }
@@ -926,14 +992,14 @@ open class IBaseModel(
                         onTrue?.let {
                             makeVisible(it, prop)
                             if(ignoreInput.get().peek() !== prop) {
-                                it.click()
+                                it.click(model = this@IBaseModel)
                             }
                         }
                     } else {
                         onFalse?.let {
                             makeVisible(it, prop)
                             if(ignoreInput.get().peek() !== prop) {
-                                it.click()
+                                it.click(model = this@IBaseModel)
                             }
                         }
                     }
@@ -984,32 +1050,36 @@ open class IBaseModel(
 
     fun readFromUI(): IBaseModel {
         applyModel {
-            mappings.forEach { prop, sel ->
-                if(sel.isVisible) {
-                    if(prop is KMutableProperty<*>) {
-                        val thiz = findParent(this@IBaseModel, prop)
-                        if(thiz == null) {
-                            findParent(this@IBaseModel, prop)
-                        }
-                        if(sel is IFormRead) {
-                            if(sel.isReady()) {
-                                when(prop.returnType.javaType.typeName.substringAfterLast(".").lowercase()) {
-                                    "int" -> prop.setter.call(thiz, sel.readInt())
-                                    "boolean" -> prop.setter.call(thiz, sel.readBool())
-                                    else -> prop.setter.call(thiz, sel.readString())
+            Log.action("readFromUI") {
+                mappings.forEach { prop, sel ->
+                    if(sel.isVisible) {
+                        Log.action("reading ${sel}") {
+                            if(prop is KMutableProperty<*>) {
+                                val thiz = findParent(this@IBaseModel, prop)
+                                if(thiz == null) {
+                                    findParent(this@IBaseModel, prop)
                                 }
-                            }
-                        } else {
-                            val v = try {
-                                sel.value
-                            } catch (e: Exception) {
-                                sel.text
-                            }
+                                if(sel is IFormRead) {
+                                    if(sel.isReady(this@IBaseModel)) {
+                                        when(prop.returnType.javaType.typeName.substringAfterLast(".").lowercase()) {
+                                            "int" -> prop.setter.call(thiz, sel.readInt(this@IBaseModel))
+                                            "boolean" -> prop.setter.call(thiz, sel.readBool(this@IBaseModel))
+                                            else -> prop.setter.call(thiz, sel.readString(this@IBaseModel))
+                                        }
+                                    }
+                                } else {
+                                    val v = try {
+                                        sel.value
+                                    } catch (e: Exception) {
+                                        sel.text
+                                    }
 
-                            try {
-                                prop.setter.call(thiz, v)
-                            } catch (e: Exception) {
-                                Log.error("Can't set value for the: ${prop.name}")
+                                    try {
+                                        prop.setter.call(thiz, v)
+                                    } catch (e: Exception) {
+                                        Log.error("Can't set value for the: ${prop.name}")
+                                    }
+                                }
                             }
                         }
                     }
@@ -1099,8 +1169,10 @@ fun <T : IBaseModel> T.clone() :T {
 val <T : IBaseModel> T.modelFromUi :T
     get() {
         return runInModel {
-            val model = if(this.view is IModelBlock<*>) (this.view).getFromUi() else this.newInstance()
-            model.readFromUI() as T
+            Log.action("Model from UI") {
+                val model = if(this.view is IModelBlock<*>) (this.view).getFromUi() else this.newInstance()
+                model.readFromUI() as T
+            }
         }
     }
 
@@ -1124,6 +1196,6 @@ fun<T: IBaseModel> T.default(lambda: (T.()->Unit)?=null): T {
 }
 
 val <T: IBaseModel> T.default: T
-    get() = newInstance().apply {
+    get() = newInstance().default {
         setDefaultValues()
     }

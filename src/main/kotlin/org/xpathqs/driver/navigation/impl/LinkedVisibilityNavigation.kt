@@ -13,13 +13,16 @@ import org.xpathqs.driver.navigation.base.INavigator
 
 private const val LINKED_VISIBILITY_KEY = "LINKED_VISIBILITY_KEY"
 
-class LinkedVisibilityNavigation(
-    private val base: IBlockSelectorNavigation
-): IBlockSelectorNavigation {
-    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) {
+class LinkedVisibilityNavigation : IBlockSelectorNavigation {
+
+    override fun isSelfApply(elem: ISelector, navigator: INavigator, model: IBaseModel): Boolean {
+        return (elem as? BaseSelector)?.customPropsMap?.get(LINKED_VISIBILITY_KEY) != null
+    }
+
+    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) : Boolean {
         if(elem is BaseSelector) {
             if(elem.isVisible) {
-                return
+                return true
             }
             val elems = (elem.rootParent as? Block)?.allInnerSelectors?.filter {
                 it.customPropsMap.containsKey(LINKED_VISIBILITY_KEY)
@@ -31,12 +34,13 @@ class LinkedVisibilityNavigation(
                         linked.makeVisible.invoke(annotatedSelector)
                     }
                     if(elem.isVisible) {
-                        return
+                        return true
                     }
                 }
             }
         }
-        base.navigate(elem, navigator, model)
+
+        return false
     }
 }
 

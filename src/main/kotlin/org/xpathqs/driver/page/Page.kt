@@ -4,6 +4,8 @@ import org.xpathqs.core.selector.NullSelector
 import org.xpathqs.core.selector.base.BaseSelector
 import org.xpathqs.core.selector.base.ISelector
 import org.xpathqs.core.selector.block.Block
+import org.xpathqs.core.selector.extensions.contains
+import org.xpathqs.core.selector.extensions.isParentOf
 import org.xpathqs.core.selector.group.GroupSelector
 import org.xpathqs.core.selector.selector.Selector
 import org.xpathqs.core.selector.selector.SelectorProps
@@ -24,4 +26,20 @@ open class Page(
     override fun hashCode(): Int {
         return fullName.hashCode()
     }
+
+    internal var isLoading: Boolean = false
+
+    private val loadSelectorErrors = ArrayList<BaseSelector>()
+
+    internal fun addError(sel: BaseSelector) {
+        loadSelectorErrors.add(sel)
+    }
+
+    fun isLoadingError(sel: BaseSelector): Boolean {
+        return loadSelectorErrors.find {
+            it.name == sel.name || it.isParentOf(sel)
+        } != null
+    }
 }
+
+

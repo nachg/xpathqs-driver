@@ -8,5 +8,11 @@ interface IBlockSelectorNavigation {
         elem: ISelector,
         navigator: INavigator,
         model: IBaseModel
-    )
+    ) : Boolean
+
+    fun isSelfApply(
+        elem: ISelector,
+        navigator: INavigator,
+        model: IBaseModel
+    ) : Boolean = false
 }

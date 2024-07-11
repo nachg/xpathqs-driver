@@ -5,14 +5,15 @@ import org.xpathqs.driver.extensions.isHidden
 import org.xpathqs.driver.extensions.isVisible
 
 class Loading(
-    var loadSelector: BaseSelector? = null,
-    var loadAllSelectors: Collection<BaseSelector> = emptyList(),
-    var loadAnySelectors: Collection<BaseSelector> = emptyList(),
+    val loadSelector: BaseSelector? = null,
+    val loadAllSelectors: Collection<BaseSelector> = emptyList(),
+    val loadAnySelectors: Collection<BaseSelector> = emptyList(),
+    val loadNoneSelectors: Collection<BaseSelector> = emptyList()
   //  var loadOneOfSelectors: Collection<BaseSelector> = emptyList()
 ) {
     val isLoaded: Boolean
         get() {
-            return if(loadSelector != null) {
+            val r1 = if(loadSelector != null) {
                 loadSelector!!.isVisible
             } else {
                 if(loadAllSelectors.isNotEmpty()) {
@@ -22,6 +23,12 @@ class Loading(
                 } else {
                     false
                 }
+            }
+
+            return if(loadNoneSelectors.isEmpty()) {
+                r1
+            } else {
+                r1 && loadNoneSelectors.none{ it.isVisible }
             }
         }
 }

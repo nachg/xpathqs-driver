@@ -14,13 +14,11 @@ import org.xpathqs.driver.navigation.base.IBlockSelectorNavigation
 import org.xpathqs.driver.navigation.base.INavigator
 import org.xpathqs.driver.navigation.base.IPageInternalState
 
-class InternalPageStateNavigation(
-    private val base: IBlockSelectorNavigation
-): IBlockSelectorNavigation {
-    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) {
+class InternalPageStateNavigation : IBlockSelectorNavigation {
+    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) : Boolean {
         if(elem is BaseSelector) {
             if(elem.isVisible) {
-                return
+                return true
             }
             elem.parents.forEach {
                 it.findAnnotation<UI.Visibility.Dynamic>()?.let { ann ->
@@ -30,14 +28,13 @@ class InternalPageStateNavigation(
                                 it.pageInternalState = ann.internalState
                             }
                             if(elem.isVisible) {
-                                return
+                                return true
                             }
                         }
                     }
                 }
             }
-
         }
-        base.navigate(elem, navigator, model)
+        return false
     }
 }

@@ -3,15 +3,17 @@ package org.xpathqs.driver.executor
 import org.xpathqs.core.selector.base.BaseSelector
 import org.xpathqs.core.selector.base.ISelector
 import org.xpathqs.core.selector.extensions.parents
+import org.xpathqs.core.selector.extensions.rootParent
 import org.xpathqs.driver.core.IDriver
 import org.xpathqs.driver.actions.IAction
 import org.xpathqs.driver.actions.MakeVisibleAction
 import org.xpathqs.driver.actions.SelectorInteractionAction
 import org.xpathqs.driver.actions.WaitAction
-import org.xpathqs.driver.extensions.isHidden
-import org.xpathqs.driver.extensions.wait
-import org.xpathqs.driver.extensions.waitForFirstVisibleOf
+import org.xpathqs.driver.extensions.*
+import org.xpathqs.driver.model.IBaseModel
+import org.xpathqs.driver.page.Page
 import org.xpathqs.driver.widgets.IFormInput
+import org.xpathqs.log.Log
 import java.time.Duration
 
 typealias ActionExecLambda = (IAction) -> Unit
@@ -24,9 +26,9 @@ interface IExecutor {
     fun isAllPresent(selectors: Collection<BaseSelector>)
         = selectors.find { it.isHidden } == null
 
-    fun getAttr(selector: BaseSelector, attr: String): String
-    fun getAllAttrs(selector: BaseSelector): Collection<Pair<String,String>>
-    fun getAttrs(selector: BaseSelector, attr: String): Collection<String>
+    fun getAttr(selector: BaseSelector, attr: String, model: IBaseModel? = null): String
+    fun getAllAttrs(selector: BaseSelector, model: IBaseModel? = null): Collection<Pair<String,String>>
+    fun getAttrs(selector: BaseSelector, attr: String, model: IBaseModel? = null): Collection<String>
 
     fun beforeAction(action: IAction) {}
     fun afterAction(action: IAction) {}
@@ -43,7 +45,7 @@ interface IExecutor {
         if(action is SelectorInteractionAction && action !is WaitAction && action !is MakeVisibleAction) {
             if(action.beforeActionDelay != Duration.ZERO) {
                 wait(action.beforeActionDelay, "beforeAction delay")
-                Thread.sleep(action.beforeActionDelay.toMillis())
+                //Thread.sleep(action.beforeActionDelay.toMillis())
             }
 
             getKeyFromPropsMap(action, SelectorInteractionAction.BEFORE_ACTION_DELAY)?.let {
@@ -81,6 +83,16 @@ interface IExecutor {
                 waitConfig as Pair<Collection<BaseSelector>, Duration>
                 waitConfig.first.waitForFirstVisibleOf(waitConfig.second)
             }
+
+            //add processing of input type
+            /*getKeyFromPropsMap(action, SelectorInteractionAction.AFTER_AJAX_INPUT)?.let { ajaxInput ->
+                ajaxInput as Pair<BaseSelector, BaseSelector>
+                listOf(ajaxInput.first, ajaxInput.second).waitForFirstVisibleOf(30.seconds)
+                if(ajaxInput.second.isVisible) {
+                    Log.error("Ajax loading error")
+                    (ajaxInput.second.rootParent as? Page)?.addError(ajaxInput.first)
+                }
+            }*/
         }
     }
 }

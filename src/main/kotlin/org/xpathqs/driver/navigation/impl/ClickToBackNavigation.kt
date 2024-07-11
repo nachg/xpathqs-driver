@@ -17,13 +17,11 @@ import org.xpathqs.driver.navigation.annotations.UI
 import org.xpathqs.driver.navigation.base.IBlockSelectorNavigation
 import org.xpathqs.driver.navigation.base.INavigator
 
-class ClickToBackNavigation(
-    private val base: IBlockSelectorNavigation
-): IBlockSelectorNavigation {
-    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) {
+class ClickToBackNavigation : IBlockSelectorNavigation {
+    override fun navigate(elem: ISelector, navigator: INavigator, model: IBaseModel) : Boolean {
         if(elem is BaseSelector) {
             if(elem.isVisible) {
-                return
+                return true
             }
             val cp = navigator.currentPage
             if(cp !== elem.rootParent) {
@@ -48,6 +46,6 @@ class ClickToBackNavigation(
             }
         }
 
-        base.navigate(elem, navigator, model)
+        return false
     }
 }

@@ -6,7 +6,7 @@ import java.time.Duration
 
 open class DriverGlobalProps : CoreGlobalProps() {
     private val WAIT_FOR_ELEMENT = 5000
-    private val REFRESH_CACHE = 500
+    private val REFRESH_CACHE = 100
 
     val WAIT_FOR_ELEMENT_TIMEOUT: Duration
         get() = Duration.ofMillis(
